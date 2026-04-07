@@ -39,6 +39,7 @@ class Recursos {
 		$conteudo->mapas = [];
 		$conteudo->dispositivos = [];
 		if (count($this->mapas)==0) {
+			echo "=== Iniciando mapa padrão do Heimdall ===\n";
 			$mapaPadrao = new Mapa(0,"default","Mapa padrão inicial do Heimdall");
 			$dispositivoPadrao = new Dispositivo(0,$mapaPadrao,"127.0.0.1","localhost",100,100);
 		}
