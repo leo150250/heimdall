@@ -1,0 +1,616 @@
+const divTela = document.getElementById("tela");
+const divListaRecursos = document.getElementById("listaRecursos");
+const btnServidor = document.getElementById("btnServidor");
+
+var janelaMovendo = null;
+var janelaRedimensionando = null;
+var redimensionamentoDirecao = "";
+var dispositivoMovendo = null;
+var usuarioX = -1;
+var usuarioY = -1;
+var mapas = [];
+
+class Janela {
+	constructor(_titulo) {
+		this.tamMinX = window.width / 2;
+		this.tamMinY = window.height / 2;
+
+		this.elJanela = document.createElement("div");
+		this.elJanela.classList.add("janela");
+		
+		this.elMenu = document.createElement("div");
+		this.elMenu.classList.add("menu");
+		this.elMenu.onmousedown = (_e) => {
+			janelaMovendo = this;
+			this.elJanela.offsetX = _e.clientX - this.elJanela.offsetLeft;
+			this.elJanela.offsetY = _e.clientY - this.elJanela.offsetTop;
+		}
+		
+		this.elTitulo = document.createElement("p");
+		this.elTitulo.textContent = _titulo;
+		
+		this.elEspacador = document.createElement("hr");
+		
+		this.elBotaoFechar = document.createElement("button");
+		this.elBotaoFechar.classList.add("fechar");
+		this.elBotaoFechar.textContent = "X";
+		this.elBotaoFechar.onclick = () => this.fecharJanela();
+		
+		this.elMenu.appendChild(this.elTitulo);
+		this.elMenu.appendChild(this.elEspacador);
+		this.elMenu.appendChild(this.elBotaoFechar);
+		this.elJanela.appendChild(this.elMenu);
+
+		this.elRedimensionadores = [
+			document.createElement("div"),
+			document.createElement("div"),
+			document.createElement("div"),
+			document.createElement("div"),
+			document.createElement("div"),
+			document.createElement("div"),
+			document.createElement("div"),
+			document.createElement("div")
+		];
+		this.elRedimensionadores.forEach((el, index) => {
+			el.classList.add("redimensionador");
+			el.classList.add(`r${index}`);
+			this.elJanela.appendChild(el);
+		});
+		for (let i = 0; i < 8; i++) {
+			this.elRedimensionadores[i].onmousedown = (_e) => {
+				janelaRedimensionando = this;
+				redimensionamentoDirecao = "";
+				let _direcao = i;
+				if (_direcao === 0 || _direcao === 1 || _direcao === 4) {
+					redimensionamentoDirecao += "n";
+				}
+				if (_direcao === 1 || _direcao === 2 || _direcao === 5) {
+					redimensionamentoDirecao += "e";
+				}
+				if (_direcao === 2 || _direcao === 3 || _direcao === 6) {
+					redimensionamentoDirecao += "s";
+				}
+				if (_direcao === 3 || _direcao === 0 || _direcao === 7) {
+					redimensionamentoDirecao += "w";
+				}
+				this.elJanela.offsetX = _e.clientX - this.elJanela.offsetLeft;
+				this.elJanela.offsetY = _e.clientY - this.elJanela.offsetTop;
+				//console.log("OffsetX: " + this.elJanela.offsetX + " | OffsetY: " + this.elJanela.offsetY);
+			}
+		}
+		this.reposicionarJanela();
+	}
+	moverJanela(_e) {
+		let novaTopo = _e.clientY - this.elJanela.offsetY;
+		let novaEsquerda = _e.clientX - this.elJanela.offsetX;
+		if (novaEsquerda < 0) {
+			novaEsquerda = 0;
+		}
+		if (novaTopo < 0) {
+			novaTopo = 0;
+		}
+		if (novaEsquerda + this.elJanela.offsetWidth > window.innerWidth) {
+			novaEsquerda = window.innerWidth - this.elJanela.offsetWidth;
+		}
+		if (novaTopo + this.elJanela.offsetHeight > window.innerHeight) {
+			novaTopo = window.innerHeight - this.elJanela.offsetHeight;
+		}
+		this.elJanela.style.top = novaTopo + "px";
+		this.elJanela.style.left = novaEsquerda + "px";
+	}
+	redimensionarJanela(_e,_largura = -1,_altura = -1) {
+		let novaLargura = this.elJanela.offsetWidth;
+		let novaAltura = this.elJanela.offsetHeight;
+		let novaEsquerda = this.elJanela.offsetLeft;
+		let novaTopo = this.elJanela.offsetTop;
+		if (redimensionamentoDirecao.includes("n")) {
+			novaTopo = _e.clientY;
+			novaAltura = this.elJanela.offsetHeight + (this.elJanela.offsetTop - novaTopo);
+		}
+		if (redimensionamentoDirecao.includes("e")) {
+			novaLargura = _e.clientX - this.elJanela.offsetLeft;
+		}
+		if (redimensionamentoDirecao.includes("s")) {
+			novaAltura = _e.clientY - this.elJanela.offsetTop;
+		}
+		if (redimensionamentoDirecao.includes("w")) {
+			novaEsquerda = _e.clientX;
+			novaLargura = this.elJanela.offsetWidth + (this.elJanela.offsetLeft - novaEsquerda);
+		}
+		novaAltura -= 2;
+		novaLargura -= 2;
+		if (novaEsquerda < 0) {
+			novaEsquerda = 0;
+		}
+		if (novaTopo < 0) {
+			novaTopo = 0;
+		}
+		if (novaLargura < this.tamMinX) {
+			novaLargura = this.tamMinX;
+		}
+		if (novaAltura < this.tamMinY) {
+			novaAltura = this.tamMinY;
+		}
+		if (novaEsquerda + novaLargura > window.innerWidth) {
+			if (novaEsquerda > window.innerWidth - this.tamMinX) {
+				novaEsquerda = window.innerWidth - this.tamMinX;
+			}
+			novaLargura = window.innerWidth - novaEsquerda;
+		}
+		if (novaTopo + novaAltura > window.innerHeight) {
+			if (novaTopo > window.innerHeight - this.tamMinY) {
+				novaTopo = window.innerHeight - this.tamMinY;
+			}
+			novaAltura = window.innerHeight - novaTopo;
+		}
+		this.elJanela.style.top = novaTopo + "px";
+		this.elJanela.style.height = novaAltura + "px";
+		this.elJanela.style.left = novaEsquerda + "px";
+		this.elJanela.style.width = novaLargura + "px";
+	}
+
+	pararMoverJanela() {
+		janelaMovendo = null;
+	}
+	pararRedimensionarJanela() {
+		janelaRedimensionando = null;
+		redimensionamentoDirecao = "";
+	}
+	exibirJanela() {
+		document.body.appendChild(this.elJanela);
+		this.posicionarNoCentro();
+		this.tamMinX = this.elJanela.offsetWidth;
+		this.tamMinY = this.elJanela.offsetHeight;
+	}
+	fecharJanela() {
+		document.body.removeChild(this.elJanela);
+	}
+	reposicionarJanela() {
+		this.elJanela.style.left = (window.innerWidth / 4) + "px";
+		this.elJanela.style.top = (window.innerHeight / 4) + "px";
+	}
+	posicionarNoCentro() {
+		this.elJanela.style.left = (window.innerWidth / 2 - this.elJanela.offsetWidth / 2) + "px";
+		this.elJanela.style.top = (window.innerHeight / 2 - this.elJanela.offsetHeight / 2) + "px";
+	}
+}
+
+class MenuContexto {
+	constructor() {
+		this.elMenuContexto = document.createElement("div");
+		this.elMenuContexto.classList.add("menu-contexto");
+	}
+	adicionarItem(_texto, _acao) {
+		const elItem = document.createElement("button");
+		elItem.textContent = _texto;
+		elItem.onclick = _acao;
+		this.elMenuContexto.appendChild(elItem);
+	}
+	exibirMenuContexto(_x, _y) {
+		this.elMenuContexto.style.left = _x + "px";
+		this.elMenuContexto.style.top = _y + "px";
+		document.body.appendChild(this.elMenuContexto);
+		document.addEventListener("click", () => this.esconderMenuContexto(), { once: true });
+	}
+	esconderMenuContexto() {
+		if (document.body.contains(this.elMenuContexto)) {
+			document.body.removeChild(this.elMenuContexto);
+		}
+	}
+}
+
+class Mapa {
+	constructor(_id,_nome) {
+		this.id = 0;
+		this.nome = _nome;
+		this.elTelaMapa = document.createElement("div");
+		this.elTelaMapa.classList.add("tela-mapa");
+		
+		this.elMenu = document.createElement("div");
+		this.elMenu.classList.add("menu");
+		this.elTitulo = document.createElement("p");
+		this.elTitulo.textContent = _nome;
+		this.elMenu.appendChild(this.elTitulo);
+		this.elMapa = document.createElement("div");
+		this.elMapa.classList.add("mapa");
+
+		this.menuContexto = new MenuContexto();
+		this.menuContexto.adicionarItem("📟 Adicionar dispositivo...", () => janela_AdicionarDispositivo(this));
+		this.elMapa.oncontextmenu = (e) => {
+			e.preventDefault();
+			usuarioX = e.clientX;
+			usuarioY = e.clientY;
+			this.menuContexto.exibirMenuContexto(usuarioX, usuarioY);
+		}
+		
+		this.elTelaMapa.appendChild(this.elMenu);
+		this.elTelaMapa.appendChild(this.elMapa);
+
+		this.dispositivos = [];
+		mapas.push(this);
+	}
+	exibirMapaNaTela() {
+		divTela.appendChild(this.elTelaMapa);
+		enviarMensagem(`\\mapa ${this.id}`);
+	}
+	adicionarDispositivo(_dispositivo) {
+		this.dispositivos.push(_dispositivo);
+		this.elMapa.appendChild(_dispositivo.elDispositivo);
+	}
+	dispositivo_Id(_id) {
+		let retorno = null;
+		this.dispositivos.forEach(_dispositivo => {
+			if (_dispositivo.id == _id) {
+				retorno = _dispositivo;
+			}
+		});
+		return retorno;
+	}
+}
+
+class Dispositivo {
+	constructor(_id,_mapa,_endereco,_nome = "",_x = 0,_y = 0) {
+		this.id = _id;
+		this.endereco = _endereco;
+		this.nome = "";
+		this.mapa = _mapa;
+		this.x = _x;
+		this.y = _y;
+		this.status = 0;
+		if (typeof this.mapa == "number") {
+			this.mapa = mapa_Id(this.mapa);
+		}
+		this.elDispositivo = document.createElement("div");
+		this.elDispositivo.classList.add("dispositivo");
+		this.posicionarDispositivo(_x,_y);
+		this.elDispositivo.onmousedown = (_e) => {
+			dispositivoMovendo = this;
+			this.elDispositivo.offsetX = _e.clientX - this.elDispositivo.offsetLeft;
+			this.elDispositivo.offsetY = _e.clientY - this.elDispositivo.offsetTop;
+		}
+
+		this.nomearElemento(_nome);
+
+		if (this.id == -1) {
+			dispositivo_registrarNovo(this);
+		}
+
+		this.mapa.adicionarDispositivo(this);
+		console.log("Dispositivo criado!");
+	}
+	posicionarDispositivo(_x,_y) {
+		if (_x < 0) {
+			_x = 0;
+		}
+		if (_y < 0) {
+			_y = 0;
+		}
+		this.elDispositivo.style.top = _y + "px";
+		this.elDispositivo.style.left = _x + "px";
+	}
+	moverDispositivo(_e) {
+		let novaTopo = _e.clientY - this.elDispositivo.offsetY;
+		let novaEsquerda = _e.clientX - this.elDispositivo.offsetX;
+		this.posicionarDispositivo(novaEsquerda,novaTopo);
+	}
+	pararMoverDispositivo() {
+		dispositivoMovendo = null;
+		if (
+			(this.x != this.elDispositivo.offsetLeft)
+			|| (this.y != this.elDispositivo.offsetTop)
+		) {
+			this.x = this.elDispositivo.offsetLeft;
+			this.y = this.elDispositivo.offsetTop;
+			enviarMensagem(`\\update disp ${this.id} -p ${this.x} ${this.y}`);
+		}
+	}
+	nomearElemento(_nome = "") {
+		this.nome = _nome;
+		if (this.nome == "") {
+			this.nome = this.endereco;
+		}
+		this.elDispositivo.textContent = this.nome;
+		this.elDispositivo.title = this.endereco;
+	}
+	informarUp() {
+		this.elDispositivo.classList.remove("down");
+		this.elDispositivo.classList.add("up");
+		this.status = 1;
+	}
+	informarDown() {
+		this.elDispositivo.classList.remove("up");
+		this.elDispositivo.classList.add("down");
+		this.status = -1;
+	}
+	informarDesativado() {
+		this.elDispositivo.classList.remove("up");
+		this.elDispositivo.classList.remove("down");
+		this.status = 0;
+	}
+}
+
+class ListaRecurso {
+	constructor(_nome) {
+		this.nome = _nome;
+		this.recursos = [];
+
+		this.elIndiceRecurso = document.createElement("div");
+		this.elIndiceRecurso.classList.add("indiceRecurso");
+		this.elIndiceRecurso.textContent = this.nome;
+		this.elIndiceRecurso.addEventListener("click", () => {
+			this.elIndiceRecurso.classList.toggle("expandir");
+		});
+		this.elListaRecurso = document.createElement("div");
+		this.elListaRecurso.classList.add("listaRecurso");
+		
+		divListaRecursos.appendChild(this.elIndiceRecurso);
+		divListaRecursos.appendChild(this.elListaRecurso);
+	}
+	adicionarRecurso(_nome,_funcao) {
+		const recurso = new Recurso(_nome, _funcao);
+		this.recursos.push(recurso);
+		this.elListaRecurso.appendChild(recurso.elRecurso);
+	}
+}
+
+class Recurso {
+	constructor(_nome,_funcao) {
+		this.nome = _nome;
+
+		this.elRecurso = document.createElement("div");
+		this.elRecurso.classList.add("recurso");
+		this.elRecurso.textContent = this.nome;
+
+		this.elRecurso.onclick = _funcao;
+	}
+}
+
+class Form {
+	constructor(_submit = null) {
+		this.elForm = document.createElement("form");
+		this.elForm.onsubmit = (e) => {
+			e.preventDefault();
+			this.elSubmit.click();
+		};
+		this.elBotoesForm = document.createElement("div");
+		this.elBotoesForm.classList.add("botoes-form");
+		
+		this.elSubmit = document.createElement("button");
+		this.elSubmit.textContent = _submit ? _submit : "Enviar";
+		this.elSubmit.tabIndex = 0;
+		this.elBotoesForm.appendChild(this.elSubmit);
+
+		this.campos = [];
+		
+		this.elForm.appendChild(this.elBotoesForm);
+	}
+	adicionarCampoTexto(_label, _placeholder, _atributos = {}) {
+		const elCampo = document.createElement("div");
+		const elLabel = document.createElement("label");
+		elLabel.textContent = _label;
+		const elInput = document.createElement("input");
+		elInput.type = "text";
+		elInput.placeholder = _placeholder;
+		for (const [chave, valor] of Object.entries(_atributos)) {
+			elInput.setAttribute(chave, valor);
+		}
+		elCampo.appendChild(elLabel);
+		elCampo.appendChild(elInput);
+		this.elForm.appendChild(elCampo);
+		elInput.tabIndex = this.campos.length + 1;
+		this.campos.push(elInput);
+		this.elSubmit.tabIndex = this.campos.length + 1;
+		return elInput;
+	}
+	adicionarFuncaoSubmit(_funcao) {
+		this.elSubmit.onclick = _funcao;
+	}
+}
+
+function janela_AdicionarDispositivo(_mapa) {
+	let janela = new Janela("Adicionar dispositivo ao mapa");
+	let form = new Form("Adicionar");
+	janela.elJanela.appendChild(form.elForm);
+	
+    let inputEndereco = form.adicionarCampoTexto("Host:", "Endereço IP ou FQDN", { required: "required" });
+	
+	form.adicionarFuncaoSubmit(() => {
+		const endereco = inputEndereco.value.trim();
+		if (endereco) {
+			if (usuarioX >= 0 && usuarioY >= 0) {
+				new Dispositivo(-1,_mapa,endereco,endereco,usuarioX,usuarioY);
+			} else {
+				new Dispositivo(-1,_mapa,endereco);
+			}
+			
+			janela.fecharJanela();
+		}
+	});
+	
+	janela.exibirJanela();
+	inputEndereco.focus();
+}
+function mapa_Id(_id) {
+	let retorno = null;
+	mapas.forEach(_mapa => {
+		if (_mapa.id == _id) {
+			retorno = _mapa;
+		}
+	});
+	return retorno;
+}
+function dispositivo_Id(_id) {
+	let retorno = null;
+	mapas.forEach(_mapa => {
+		let obterId = _mapa.dispositivo_Id(_id);
+		console.log(_mapa);
+		if (obterId != null) {
+			retorno = obterId;
+		}
+	});
+	return retorno;
+}
+
+var dispositivoSemRegistro = null;
+function dispositivo_registrarNovo(_disp) {
+	dispositivoSemRegistro = _disp;
+	enviarMensagem(`\\create disp ${dispositivoSemRegistro.mapa.id} ${dispositivoSemRegistro.endereco} -n ${dispositivoSemRegistro.nome} -p ${dispositivoSemRegistro.x} ${dispositivoSemRegistro.y}`);
+}
+
+document.addEventListener("mousemove", (_e) => {
+	if (janelaMovendo) {
+		janelaMovendo.moverJanela(_e);
+	}
+	if (janelaRedimensionando) {
+		janelaRedimensionando.redimensionarJanela(_e);
+	}
+	if (dispositivoMovendo) {
+		dispositivoMovendo.moverDispositivo(_e);
+	}
+});
+document.addEventListener("mouseup", (_e2) => {
+	if (janelaMovendo) {
+		janelaMovendo.pararMoverJanela();
+	}
+	if (janelaRedimensionando) {
+		janelaRedimensionando.pararRedimensionarJanela();
+	}
+	if (dispositivoMovendo) {
+		dispositivoMovendo.pararMoverDispositivo();
+	}
+});
+
+
+//#region Comunicação com servidor
+var socket = null;
+var meuId = 0;
+var conectadoServidor = false;
+
+function iniciarWebSocket(_porta,_endereco,_seguro) {
+	let protocolo = (_seguro?"wss":"ws");
+	let novoSocket = new WebSocket(`${protocolo}://${_endereco}:${_porta}`);
+	novoSocket.onopen = () => {
+		console.log("Conectado ao servidor");
+		atualizarBotaoServidor();
+	};
+	novoSocket.onmessage = (evento) => {
+		console.log("<== RECEBIDO\n", evento.data);
+		jsonServer = JSON.parse(evento.data);
+		switch (jsonServer.tipo) {
+			case "welcome":
+				meuId = jsonServer.conteudo.resourceId;
+				enviarMensagem("\\thnx");
+				enviarMensagem("\\recursos");
+				break;
+			case "recursos":
+				jsonServer.mapas.forEach(_mapa => {
+					let novoMapa = new Mapa(_mapa.id,_mapa.nome);
+					listaMapas.adicionarRecurso(novoMapa.nome, () => {
+						novoMapa.exibirMapaNaTela();
+					});
+				});
+				break;
+			case "mapa":
+				jsonServer.dispositivos.forEach(_dispositivo => {
+					let mapaId = mapa_Id(_dispositivo.mapa);
+					if (mapaId !== null) {
+						let dispositivoId = mapaId.dispositivo_Id(_dispositivo.id);
+						if (dispositivoId == null) {
+							let novoDispositivo = new Dispositivo(_dispositivo.id,_dispositivo.mapa,_dispositivo.endereco,_dispositivo.nome,_dispositivo.pos[0],_dispositivo.pos[1]);
+							//mapaId.adicionarDispositivo(novoDispositivo);
+							if (_dispositivo.status == 0) {
+								novoDispositivo.informarUp();
+							} else if (_dispositivo.status > 0) {
+								novoDispositivo.informarDown();
+							}
+						} else {
+							dispositivoId.endereco = _dispositivo.endereco;
+							dispositivoId.posicionarDispositivo(_dispositivo.pos[0],_dispositivo.pos[1]);
+							dispositivoId.nomearElemento(_dispositivo.nome);
+							if (_dispositivo.status == 0) {
+								dispositivoId.informarUp();
+							} else if (_dispositivo.status > 0) {
+								dispositivoId.informarDown();
+							}
+						}
+					} else {
+						console.log(`Não é este o mapa solicitado: ${_dispositivo.mapa}`);
+					}
+				})
+				break;
+			case "reg":
+				if (dispositivoSemRegistro != null) {
+					dispositivoSemRegistro.id = jsonServer.dispositivo;
+					dispositivoSemRegistro = null;
+				}
+				break;
+			case "up":
+				var dispositivoUp = dispositivo_Id(jsonServer.dispositivo);
+				if (dispositivoUp != null) {
+					dispositivoUp.informarUp();
+				}
+				break;
+			case "down":
+				var dispositivoDown = dispositivo_Id(jsonServer.dispositivo);
+				if (dispositivoDown != null) {
+					dispositivoDown.informarDown();
+				}
+				break;
+		}
+	};
+	novoSocket.onerror = (erro) => {
+		console.error("Erro na conexão:", erro);
+		atualizarBotaoServidor();
+	};
+	novoSocket.onclose = () => {
+		console.log("Desconectado do servidor");
+		atualizarBotaoServidor();
+	};
+	return novoSocket;
+}
+
+function conectarServidor(_porta,_endereco="localhost",_seguro=true) {
+	try {
+		socket = iniciarWebSocket(_porta,_endereco,_seguro);
+	} catch(_erro) {
+		console.error("Falha ao conectar no servidor:",_erro);
+	}
+}
+
+var mensagens = [];
+function enviarMensagem(_texto) {
+	mensagens.push(_texto);
+};
+function _monitorSend() {
+	if (mensagens.length > 0) {
+		if (socket.readyState === WebSocket.OPEN) {
+			let mensagem = mensagens.shift();
+			console.log("ENVIANDO ==>\n", mensagem);
+			socket.send(mensagem);
+		}
+	}
+}
+setInterval(_monitorSend, 100);
+function atualizarBotaoServidor() {
+	if (
+		(socket!==null)
+		&& (socket.readyState == 1)
+	) {
+		console.log(socket);
+		btnServidor.classList.add("ok");
+	} else {
+		btnServidor.classList.remove("ok");
+	}
+}
+//#endregion
+
+
+listaMapas = new ListaRecurso("Mapas");
+//let mapaTeste = new Mapa("Mapa de teste");
+//listaMapas.adicionarRecurso(mapaTeste.nome, () => {
+//	mapaTeste.exibirMapaNaTela();
+//});
+//mapaTeste.exibirMapaNaTela();
+
+conectarServidor(8080,"localhost", false);
+//new Dispositivo(mapaTeste, "192.168.1.1", 100, 100);

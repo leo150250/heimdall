@@ -1,0 +1,71 @@
+{
+    "mapas": [
+        {
+            "id": 0,
+            "nome": "campus Cacoal",
+            "descricao": "Mapa de teste do Heimdall"
+        }
+    ],
+    "dispositivos": [
+        {
+            "id": 0,
+            "mapa": 0,
+            "nome": "Servidor AD",
+            "endereco": "10.64.40.4",
+            "pos": [
+                124,
+                253
+            ]
+        },
+        {
+            "id": 1,
+            "mapa": 0,
+            "nome": "Proxmox 1",
+            "endereco": "10.64.40.1",
+            "pos": [
+                211,
+                165
+            ]
+        },
+        {
+            "id": 2,
+            "mapa": 0,
+            "nome": "10.64.40.2",
+            "endereco": "10.64.40.2",
+            "pos": [
+                54,
+                140
+            ]
+        },
+        {
+            "id": 3,
+            "mapa": 0,
+            "nome": "10.64.40.3",
+            "endereco": "10.64.40.3",
+            "pos": [
+                166,
+                50
+            ]
+        },
+        {
+            "id": 4,
+            "mapa": 0,
+            "nome": "10.64.40.5",
+            "endereco": "10.64.40.5",
+            "pos": [
+                359,
+                115
+            ]
+        },
+        {
+            "id": 5,
+            "mapa": 0,
+            "nome": "10.64.70.99",
+            "endereco": "10.64.70.99",
+            "pos": [
+                305,
+                222
+            ]
+        }
+    ]
+}
