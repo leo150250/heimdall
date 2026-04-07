@@ -38,6 +38,10 @@ class Recursos {
 		$conteudo = new stdClass();
 		$conteudo->mapas = [];
 		$conteudo->dispositivos = [];
+		if (count($this->mapas)==0) {
+			$mapaPadrao = new Mapa(0,"default","Mapa padrão inicial do Heimdall");
+			$dispositivoPadrao = new Dispositivo(0,$mapaPadrao,"127.0.0.1","localhost",100,100);
+		}
 		foreach ($this->mapas as $_mapa) {
 			array_push($conteudo->mapas,$_mapa->json());
 		}
