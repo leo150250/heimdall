@@ -14,6 +14,14 @@ class Recursos {
 	}
 	public function carregar() {
 		global $path;
+		try {
+			if (!file_exists($path."interno/sys/recursos.json")) {
+				$this->salvar();
+			}
+		} catch (Exception $e) {
+			echo "Erro ao carregar recursos: ".$e->getMessage()."\n";
+			return;
+		}
 		$this->mapas = [];
 		$this->dispositivos = [];
 		$jsonRecursos = json_decode(file_get_contents($path."interno/sys/recursos.json"));
