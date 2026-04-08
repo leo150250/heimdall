@@ -274,6 +274,14 @@ label:has(+ input) {
 
 #footer {
 	border: 1px outset #FFF;
+	display: flex;
+}
+
+#footer hr {
+	width: 0px;
+	height: 1em;
+	margin: 0px 1em;
+	display: inline-block;
 }
 
 #sidebar #listaRecursos {
