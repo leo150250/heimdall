@@ -4,6 +4,8 @@ $server = null;
 $clientes = array($server);
 $comm = null;
 require_once($path."interno/estrutura.php");
+
+/*
 if ($config->getPid() != 0) {
 	echo "Servidor já em execução com PID {$config->getPid()}. Encerrando processo antigo...\n";
 	if (stripos(php_uname('s'), 'win')>-1) {
@@ -13,6 +15,10 @@ if ($config->getPid() != 0) {
 	}
 	sleep(1);
 	$config->setPid(0);
+}*/
+if (checkExec()) {
+	echo "Servidor já em execução com PID {$config->getPid()}. Encerrando processo antigo...\n";
+	killExec();
 }
 
 

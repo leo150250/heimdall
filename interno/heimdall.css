@@ -198,6 +198,12 @@ label:has(+ input) {
 	margin-top: 0;
 	background-color: #00F;
 }
+.janela hr {
+	margin: 0.25em;
+}
+.janela p {
+	margin: 0.25em;
+}
 
 .menu-contexto {
 	position: absolute;
