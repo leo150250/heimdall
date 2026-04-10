@@ -1,14 +1,17 @@
 const divTela = document.getElementById("tela");
 const divListaRecursos = document.getElementById("listaRecursos");
 const btnServidor = document.getElementById("btnServidor");
+const btnAdicionarRecurso = document.getElementById("btnAdicionarRecurso");
 
 var janelaMovendo = null;
 var janelaRedimensionando = null;
 var redimensionamentoDirecao = "";
 var dispositivoMovendo = null;
+var dispositivoSemRegistro = null;
 var usuarioX = -1;
 var usuarioY = -1;
 var mapas = [];
+var menuContextoExibido = null;
 
 class Janela {
 	constructor(_titulo, _tamX = -1, _tamY = -1) {
@@ -160,6 +163,7 @@ class Janela {
 		redimensionamentoDirecao = "";
 	}
 	exibirJanela() {
+		console.log("Janela exibida");
 		document.body.appendChild(this.elJanela);
 		this.registrarNovoTamanhoMin();
 		this.posicionarNoCentro();
@@ -196,23 +200,31 @@ class MenuContexto {
 	constructor() {
 		this.elMenuContexto = document.createElement("div");
 		this.elMenuContexto.classList.add("menu-contexto");
+		this.exibiu = false;
 	}
 	adicionarItem(_texto, _acao) {
 		const elItem = document.createElement("button");
 		elItem.textContent = _texto;
-		elItem.onclick = _acao;
+		elItem.onclick = ()=>{
+			_acao();
+			this.esconderMenuContexto();
+		}
 		this.elMenuContexto.appendChild(elItem);
 	}
 	exibirMenuContexto(_x, _y) {
+		console.log("Exibiu menu de contexto");
 		this.elMenuContexto.style.left = _x + "px";
 		this.elMenuContexto.style.top = _y + "px";
 		document.body.appendChild(this.elMenuContexto);
-		document.addEventListener("click", () => this.esconderMenuContexto(), { once: true });
+		menuContextoExibido = this;
 	}
 	esconderMenuContexto() {
+		this.exibiu = false;
+		console.log("Escondeu menu de contexto");
 		if (document.body.contains(this.elMenuContexto)) {
 			document.body.removeChild(this.elMenuContexto);
 		}
+		menuContextoExibido = null;
 	}
 }
 
@@ -238,6 +250,11 @@ class Mapa {
 			usuarioX = e.clientX;
 			usuarioY = e.clientY;
 			this.menuContexto.exibirMenuContexto(usuarioX, usuarioY);
+		}
+		this.elMapa.onmousedown = (e) => {
+			if (menuContextoExibido != null) {
+				menuContextoExibido.esconderMenuContexto();
+			}
 		}
 		
 		this.elTelaMapa.appendChild(this.elMenu);
@@ -424,6 +441,7 @@ class Form {
 	}
 }
 
+//#region Janelas
 function janela_AdicionarDispositivo(_mapa) {
 	let janela = new Janela("Adicionar dispositivo ao mapa");
 	let form = new Form("Adicionar");
@@ -587,6 +605,12 @@ function janela_ControleServidor() {
 	janela.elJanela.appendChild(divBotoesControle);
 	janela.exibirJanela();
 }
+function janela_AdicionarRecurso(_tipo) {
+	let janela = new Janela(`Adicionar novo(a) ${_tipo}`);
+	janela.exibirJanela();
+}
+//#endregion
+
 function mapa_Id(_id) {
 	let retorno = null;
 	mapas.forEach(_mapa => {
@@ -607,8 +631,6 @@ function dispositivo_Id(_id) {
 	});
 	return retorno;
 }
-
-var dispositivoSemRegistro = null;
 function dispositivo_registrarNovo(_disp) {
 	dispositivoSemRegistro = _disp;
 	enviarMensagem(`\\create disp ${dispositivoSemRegistro.mapa.id} ${dispositivoSemRegistro.endereco} -n ${dispositivoSemRegistro.nome} -p ${dispositivoSemRegistro.x} ${dispositivoSemRegistro.y}`);
@@ -634,6 +656,13 @@ document.addEventListener("mouseup", (_e2) => {
 	}
 	if (dispositivoMovendo) {
 		dispositivoMovendo.pararMoverDispositivo();
+	}
+	if (menuContextoExibido != null) {
+		console.log(_e2.target.parentElement);
+		console.log(menuContextoExibido.elMenuContexto);
+		if (_e2.target.parentElement != menuContextoExibido.elMenuContexto) {
+			menuContextoExibido.esconderMenuContexto();
+		}
 	}
 });
 
@@ -771,6 +800,14 @@ function atualizarBotaoServidor() {
 
 
 listaMapas = new ListaRecurso("Mapas");
+menuContextoRecursos = new MenuContexto();
+menuContextoRecursos.adicionarItem("🗺️ Novo mapa...",()=>{
+	janela_AdicionarRecurso("mapa");
+});
+btnAdicionarRecurso.onclick = (_e)=>{
+	_e.preventDefault();
+	menuContextoRecursos.exibirMenuContexto(_e.clientX,_e.clientY);
+}
 //let mapaTeste = new Mapa("Mapa de teste");
 //listaMapas.adicionarRecurso(mapaTeste.nome, () => {
 //	mapaTeste.exibirMapaNaTela();
