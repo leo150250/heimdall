@@ -40,7 +40,7 @@ button:active {
 form {
 	display: flex;
 	flex-direction: column;
-	padding: 0.5em 0.25em 0;
+	padding: 0.25em 0.25em 0;
 	margin: 0;
 	flex-grow: 2;
 	align-items: stretch;
@@ -55,7 +55,7 @@ form .botoes-form {
 	justify-content: flex-end;
 	background-color: #0001;
 	order: 1;
-	margin: 0.25em -0.25em 0;
+	margin: 0.25em 0 0;
 	padding: 0.25em;
 	flex-grow: 0;
 }
@@ -83,6 +83,11 @@ input:focus {
 
 label:has(+ input) {
 	margin-right: 0.25em;
+}
+
+.flex {
+	display: flex;
+	flex-wrap: wrap;
 }
 
 .menu {
@@ -113,7 +118,7 @@ label:has(+ input) {
 	background-color: #EEE;
 	top: 0px;
 	left: 0px;
-	padding: 0px;
+	padding: 0px 0.25em 0.5em;
 	box-shadow: 1px 1px 5px #000B;
 	z-index: 100;
 	display: flex;
@@ -126,6 +131,7 @@ label:has(+ input) {
 	cursor: move;
 	user-select: none;
 	border: 1px inset #FFF;
+	margin: 0px -0.25em 0.25em;
 }
 
 .janela .menu button {
@@ -197,6 +203,18 @@ label:has(+ input) {
 	height: 100%;
 	margin-top: 0;
 	background-color: #00F;
+}
+.janela hr {
+	margin: 0.25em;
+}
+.janela p {
+	margin: 0.25em;
+}
+.janela form .botoes-form {
+	margin-left: -0.5em;
+	margin-right: -0.5em;
+	margin-bottom: -0.5em;
+	padding: 0.25em 0.25em 0.5em;
 }
 
 .menu-contexto {

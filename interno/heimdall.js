@@ -11,9 +11,11 @@ var usuarioY = -1;
 var mapas = [];
 
 class Janela {
-	constructor(_titulo) {
+	constructor(_titulo, _tamX = -1, _tamY = -1) {
 		this.tamMinX = window.width / 2;
 		this.tamMinY = window.height / 2;
+		this.tamX = _tamX;
+		this.tamY = _tamY;
 
 		this.elJanela = document.createElement("div");
 		this.elJanela.classList.add("janela");
@@ -79,6 +81,7 @@ class Janela {
 			}
 		}
 		this.reposicionarJanela();
+		this.funcCallBackFechar = ()=>{};
 	}
 	moverJanela(_e) {
 		let novaTopo = _e.clientY - this.elJanela.offsetY;
@@ -158,12 +161,12 @@ class Janela {
 	}
 	exibirJanela() {
 		document.body.appendChild(this.elJanela);
+		this.registrarNovoTamanhoMin();
 		this.posicionarNoCentro();
-		this.tamMinX = this.elJanela.offsetWidth;
-		this.tamMinY = this.elJanela.offsetHeight;
 	}
 	fecharJanela() {
 		document.body.removeChild(this.elJanela);
+		this.funcCallBackFechar();
 	}
 	reposicionarJanela() {
 		this.elJanela.style.left = (window.innerWidth / 4) + "px";
@@ -172,6 +175,20 @@ class Janela {
 	posicionarNoCentro() {
 		this.elJanela.style.left = (window.innerWidth / 2 - this.elJanela.offsetWidth / 2) + "px";
 		this.elJanela.style.top = (window.innerHeight / 2 - this.elJanela.offsetHeight / 2) + "px";
+	}
+	registrarNovoTamanhoMin() {
+		if (this.tamX == -1) {
+			this.tamMinX = this.elJanela.offsetWidth;
+		} else {
+			this.tamMinX = this.tamX;
+			this.elJanela.style.width = this.tamX;
+		}
+		if (this.tamY == -1) {
+			this.tamMinY = this.elJanela.offsetHeight;
+		} else {
+			this.tamMinY = this.tamY;
+			this.elJanela.style.height = this.tamY;
+		}
 	}
 }
 
@@ -430,6 +447,146 @@ function janela_AdicionarDispositivo(_mapa) {
 	janela.exibirJanela();
 	inputEndereco.focus();
 }
+function janela_ControleServidor() {
+	let janela = new Janela("Controle do servidor do Heimdall",500);
+	let pDescricao = document.createElement("p");
+	pDescricao.textContent = "Para seu funcionamento, o Heimdall requer um servidor web que tenha o PHP instalado, com algumas extensões habilitadas. Assim, um script PHP permanece em execução a todo momento no servidor, e ela é responsável por realizar o monitoramento da rede em tempo real.";
+	let fieldsetServidor = document.createElement("fieldset");
+	let legendServidor = document.createElement("legend");
+	legendServidor.textContent = "Especificações:";
+	fieldsetServidor.appendChild(legendServidor);
+	var erros = 0;
+	var verificando = 0;
+	
+	let pLocal = document.createElement("p");
+	if (window.location.origin == "file://") {
+		pLocal.textContent = "❌ Não está em servidor web";
+		pLocal.title = "Foi detectado que esta página que você está vendo atualmente não está em um servidor web.\nÉ fortemente recomendado que seja inserida em um servidor web, para que ela possa se comunicar diretamente com o serviço do Heimdall.";
+		erros++;
+	} else {
+		pLocal.textContent = "✅ Em servidor web: "+window.location.hostname;
+	}
+
+	let pPHP = document.createElement("p");
+	pPHP.textContent = "⏳ Verificando PHP...";
+	verificando++;
+
+	fetch("interno/servidor.php")
+		.then(response => response.json())
+		.then(data => {
+			console.log(data);
+			dataServidor = data;
+
+			const phpVersion = data.phpVersion || "desconhecida";
+			const isPhp8 = phpVersion.startsWith("8");
+			pPHP.textContent = `PHP ${phpVersion} instalado`;
+			if (!isPhp8) {
+				pPHP.textContent += " (recomenda-se PHP 8+)";
+				pPHP.textContent = "⚠️ " + pPHP.textContent;
+				pPHP.title = "Foi detectado que a versão do PHP não é a 8. Recomenda-se atualizar para a versão 8 ou superior para melhor compatibilidade.";
+				erros++;
+			} else {
+				pPHP.textContent = "✅ " + pPHP.textContent;
+			}
+
+			// Verificar demais propriedades como extensões opcionais
+			for (const [chave, valor] of Object.entries(data)) {
+				if (chave !== 'phpVersion' && chave !== 'timestamp') {
+					const pExtensao = document.createElement("p");
+					if (valor) {
+						pExtensao.textContent = `✅ Extensão ${chave} habilitada`;
+					} else {
+						pExtensao.textContent = `⚠️ Extensão ${chave} não encontrada`;
+						pExtensao.title = `A extensão ${chave} não está disponível. Recursos que dependem desta extensão não funcionarão corretamente.`;
+						erros++;
+					}
+					fieldsetServidor.appendChild(pExtensao);
+				}
+			}
+
+			verificando--;
+			atualizarErros();
+		})
+		.catch(erro => {
+			verificando--;
+			pPHP.textContent = "❌ PHP não instalado no servidor web";
+			pPHP.title = "Não foi detectada a presença do PHP no servidor web. Certifique-se de que o PHP está instalado e configurado corretamente.";
+			erros++;
+			atualizarErros();
+		});
+
+	let pResultado = document.createElement("p");
+	pResultado.textContent = "⏳ Analisando...";
+	function atualizarErros() {
+		if (erros > 0) {
+			pResultado.textContent = "⚠️ Um ou mais itens precisam da sua atenção para que o Heimdall funcione corretamente. Passe o mouse por cima deles para ver uma descrição breve sobre o problema.";
+		} else {
+			if (verificando > 0) {
+				pResultado.textContent = "⏳ Analisando...";
+			} else {
+				pResultado.textContent = "O Heimdall está pronto para funcionar.";
+			}
+		}
+		janela.registrarNovoTamanhoMin();
+		janela.posicionarNoCentro();
+	}
+	
+	console.log({window});
+	fieldsetServidor.appendChild(pLocal);
+	fieldsetServidor.appendChild(pPHP);
+	
+	janela.elJanela.appendChild(pDescricao);
+	//janela.elJanela.appendChild(document.createElement("hr"));
+	janela.elJanela.appendChild(fieldsetServidor);
+	janela.elJanela.appendChild(pResultado);
+
+	let divBotoesControle = document.createElement("div");
+	divBotoesControle.classList.add("flex");
+	let btnIniciarHeimdall = document.createElement("button");
+	btnIniciarHeimdall.textContent = "Iniciar Heimdall";
+	let btnPararHeimdall = document.createElement("button");
+	btnPararHeimdall.textContent = "Parar Heimdall";
+	let divStatusHeimdall = document.createElement("div");
+	divStatusHeimdall.textContent = "⏳ Obtendo estado do Heimdal...";
+	divBotoesControle.appendChild(btnIniciarHeimdall);
+	divBotoesControle.appendChild(btnPararHeimdall);
+	btnIniciarHeimdall.onclick = () => {
+		fetch("interno/startExec.php", { signal: AbortSignal.timeout(1000) })
+			.then(response => response.json())
+			.then(data => console.log(data))
+			.catch(erro => console.error(erro));
+	};
+	btnPararHeimdall.onclick = () => {
+		fetch("interno/stopExec.php")
+			.then(response => response.json())
+			.then(data => console.log(data))
+			.catch(erro => console.error(erro));
+	};
+	divBotoesControle.appendChild(divStatusHeimdall);
+
+	var timerEstado = setInterval(()=>{
+		fetch("interno/checkExec.php")
+			.then(response => response.json())
+			.then(data => {
+				if (data.checkExec) {
+					divStatusHeimdall.textContent = "✅ Heimdall em execução";
+				} else {
+					divStatusHeimdall.textContent = "❌ Heimdall parado";
+				}
+			})
+			.catch(erro => {
+				divStatusHeimdall.textContent = "⚠️ Erro ao verificar status";
+				console.error(erro);
+			});
+	},1000);
+
+	janela.funcCallBackFechar = ()=>{
+		clearInterval(timerEstado);
+	}
+
+	janela.elJanela.appendChild(divBotoesControle);
+	janela.exibirJanela();
+}
 function mapa_Id(_id) {
 	let retorno = null;
 	mapas.forEach(_mapa => {
@@ -565,6 +722,10 @@ function iniciarWebSocket(_porta,_endereco,_seguro) {
 	novoSocket.onclose = () => {
 		console.log("Desconectado do servidor");
 		atualizarBotaoServidor();
+		setTimeout(()=>{
+			console.log(`Tentando novamente reconectar a ${_endereco}:${_porta}...`);
+			conectarServidor(_porta,_endereco,_seguro);
+		},5000);
 	};
 	return novoSocket;
 }
@@ -574,6 +735,10 @@ function conectarServidor(_porta,_endereco="localhost",_seguro=true) {
 		socket = iniciarWebSocket(_porta,_endereco,_seguro);
 	} catch(_erro) {
 		console.error("Falha ao conectar no servidor:",_erro);
+		setTimeout(()=>{
+			console.log(`Tentando novamente reconectar a ${_endereco}:${_porta}...`);
+			conectarServidor(_porta,_endereco,_seguro);
+		},5000);
 	}
 }
 

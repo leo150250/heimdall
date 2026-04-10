@@ -111,6 +111,36 @@ function encodeMessage($msg) {
 	return $header . $msg;
 }
 
+function checkExec() {
+	global $config;
+	$pid = $config->getPid();
+	if ($pid == 0) {
+		return false;
+	}
+
+	if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+		$output = shell_exec("tasklist /FI \"PID eq $pid\" 2>nul");
+		return (strpos($output, (string)$pid) !== false);
+	} else {
+		return (posix_kill($pid, 0));
+	}
+}
+function killExec() {
+	global $config;
+	$pid = $config->getPid();
+	if ($pid == 0) {
+		return false;
+	}
+
+	if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+		shell_exec("taskkill /PID $pid /F");
+	} else {
+		posix_kill($pid, 9);
+	}
+	$config->setPid(0);
+	return true;
+}
+
 $config = new Config();
 $config->carregar();
 ?>
