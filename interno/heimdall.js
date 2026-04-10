@@ -541,6 +541,7 @@ function janela_ControleServidor() {
 	janela.elJanela.appendChild(pResultado);
 
 	let divBotoesControle = document.createElement("div");
+	divBotoesControle.classList.add("flex");
 	let btnIniciarHeimdall = document.createElement("button");
 	btnIniciarHeimdall.textContent = "Iniciar Heimdall";
 	let btnPararHeimdall = document.createElement("button");
