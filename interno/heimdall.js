@@ -12,6 +12,7 @@ var usuarioX = -1;
 var usuarioY = -1;
 var mapas = [];
 var menuContextoExibido = null;
+var formId = 0;
 
 class Janela {
 	constructor(_titulo, _tamX = -1, _tamY = -1) {
@@ -163,7 +164,7 @@ class Janela {
 		redimensionamentoDirecao = "";
 	}
 	exibirJanela() {
-		console.log("Janela exibida");
+		//console.log("Janela exibida");
 		document.body.appendChild(this.elJanela);
 		this.registrarNovoTamanhoMin();
 		this.posicionarNoCentro();
@@ -212,7 +213,7 @@ class MenuContexto {
 		this.elMenuContexto.appendChild(elItem);
 	}
 	exibirMenuContexto(_x, _y) {
-		console.log("Exibiu menu de contexto");
+		//console.log("Exibiu menu de contexto");
 		this.elMenuContexto.style.left = _x + "px";
 		this.elMenuContexto.style.top = _y + "px";
 		document.body.appendChild(this.elMenuContexto);
@@ -220,7 +221,7 @@ class MenuContexto {
 	}
 	esconderMenuContexto() {
 		this.exibiu = false;
-		console.log("Escondeu menu de contexto");
+		//console.log("Escondeu menu de contexto");
 		if (document.body.contains(this.elMenuContexto)) {
 			document.body.removeChild(this.elMenuContexto);
 		}
@@ -229,9 +230,13 @@ class MenuContexto {
 }
 
 class Mapa {
-	constructor(_id,_nome) {
+	constructor(_id,_nome,_descricao="") {
 		this.id = 0;
 		this.nome = _nome;
+		this.descricao = _descricao;
+		this.pingFreq = 5;
+		this.pingTimeout = 1000;
+		this.dispDown = 3;
 		this.elTelaMapa = document.createElement("div");
 		this.elTelaMapa.classList.add("tela-mapa");
 		
@@ -239,7 +244,28 @@ class Mapa {
 		this.elMenu.classList.add("menu");
 		this.elTitulo = document.createElement("p");
 		this.elTitulo.textContent = _nome;
+
+		this.elBtnPropriedades = document.createElement("button");
+		this.elBtnPropriedades.textContent = "Propriedades";
+		this.elBtnPropriedades.onclick = ()=>{
+			let janela = new Janela(`Propriedades do mapa ID ${this.id}`);
+			let formMapa = new Form(`Confirmar`);
+			janela.elJanela.appendChild(formMapa.elForm);
+
+			let inputNome = formMapa.adicionarCampoTexto("Nome:","Nome do mapa",{required:true,value:this.nome});
+			let inputDescricao = formMapa.adicionarCampoArea("Descrição:","Descrição informativa sobre o mapa",{value:this.descricao});
+			let inputPingFreq = formMapa.adicionarCampoRange("Frequência do ping em segundos para os dispositivos:",0,600,{multiSteps:[1,10,60],value:this.pingFreq});
+			let inputPingTimeout = formMapa.adicionarCampoRange("Tempo de timeout em milissegundos para os pings:",200,10000,{multiSteps:[200,1000],step:100,value:this.pingTimeout});
+			let inputDownQtd = formMapa.adicionarCampoRange("Quantidade de pings para registrar downtime:",1,10,{multiSteps:[1],value:this.dispDown});
+			
+			formMapa.adicionarFuncaoSubmit(()=>{
+				janela.fecharJanela();
+			});
+			janela.exibirJanela();
+		}
+
 		this.elMenu.appendChild(this.elTitulo);
+		this.elMenu.appendChild(this.elBtnPropriedades);
 		this.elMapa = document.createElement("div");
 		this.elMapa.classList.add("mapa");
 
@@ -262,6 +288,10 @@ class Mapa {
 
 		this.dispositivos = [];
 		mapas.push(this);
+
+		listaMapas.adicionarRecurso(this.nome, () => {
+			this.exibirMapaNaTela();
+		});
 	}
 	exibirMapaNaTela() {
 		divTela.appendChild(this.elTelaMapa);
@@ -310,7 +340,7 @@ class Dispositivo {
 		}
 
 		this.mapa.adicionarDispositivo(this);
-		console.log("Dispositivo criado!");
+		//console.log("Dispositivo criado!");
 	}
 	posicionarDispositivo(_x,_y) {
 		if (_x < 0) {
@@ -401,7 +431,10 @@ class Recurso {
 
 class Form {
 	constructor(_submit = null) {
+		this.id = `form${formId}`;
+		formId++;
 		this.elForm = document.createElement("form");
+		this.elForm.id = this.id
 		this.elForm.onsubmit = (e) => {
 			e.preventDefault();
 			this.elSubmit.click();
@@ -419,21 +452,90 @@ class Form {
 		this.elForm.appendChild(this.elBotoesForm);
 	}
 	adicionarCampoTexto(_label, _placeholder, _atributos = {}) {
-		const elCampo = document.createElement("div");
-		const elLabel = document.createElement("label");
-		elLabel.textContent = _label;
-		const elInput = document.createElement("input");
-		elInput.type = "text";
-		elInput.placeholder = _placeholder;
+		let elInput = this.criarCampo("text", _label, _placeholder, _atributos);
+		return elInput;
+	}
+	adicionarCampoArea(_label, _placeholder, _atributos = {}) {
+		let elInput = this.criarCampo("textarea", _label, _placeholder, _atributos);
+		return elInput;
+	}
+	adicionarCampoRange(_label, _min, _max, _atributos = {}) {
+		_atributos.min = _min;
+		_atributos.max = _max;
+		let elInput = this.criarCampo("range", _label, "", _atributos);
+		let elInputNumber = this.criarInput("number");
+		for (const [chave, valor] of Object.entries(_atributos)) {
+			switch (chave) {
+				case "multiSteps":
+					//console.log(valor);
+					let datalistRange = document.createElement("datalist");
+					datalistRange.id = elInput.id+"_data";
+					elInput.setAttribute("list",datalistRange.id);
+					let incremento = 0;
+					for (let contador = _min; contador <= _max; contador+=valor[incremento]) {
+						let novaOption = document.createElement("option");
+						novaOption.value = contador;
+						datalistRange.appendChild(novaOption);
+						if (incremento < valor.length-1) {
+							if (valor[incremento+1] == contador) {
+								incremento++;
+							}
+						}
+					}
+					this.elCampo.appendChild(datalistRange);
+					break;
+				case "value":
+					elInput.value = valor;
+					elInputNumber.value = valor;
+			}
+		}
+		elInput.addEventListener('input', ()=>{
+			elInputNumber.value = elInput.value;
+		});
+		elInputNumber.addEventListener('input', ()=>{
+			elInput.value = elInputNumber.value;
+		});
+		if (!elInput.hasAttribute("value")) {
+			elInput.value = _min;
+			elInputNumber.value = _min;
+		}
+		this.elCampo.insertBefore(elInputNumber,elInput);
+		return elInput;
+	}
+	criarInput(_tipo, _placeholder = "", _atributos = {}) {
+		let elInput = null;
+		if (_tipo != "textarea") {
+			elInput = document.createElement("input");
+			elInput.type = _tipo;
+		} else {
+			elInput = document.createElement("textarea");
+		}
+		elInput.id = this.id+`input${this.campos.length}`;
+		if (_placeholder!="") {
+			elInput.placeholder = _placeholder;
+		}
+		switch (_tipo) {
+			case "textarea":
+				elInput.style.resize = "none";
+				break;
+		}
 		for (const [chave, valor] of Object.entries(_atributos)) {
 			elInput.setAttribute(chave, valor);
 		}
-		elCampo.appendChild(elLabel);
-		elCampo.appendChild(elInput);
-		this.elForm.appendChild(elCampo);
 		elInput.tabIndex = this.campos.length + 1;
 		this.campos.push(elInput);
 		this.elSubmit.tabIndex = this.campos.length + 1;
+		return elInput;
+	}
+	criarCampo(_tipo, _label, _placeholder="", _atributos = {}) {
+		this.elCampo = document.createElement("div");
+		const elLabel = document.createElement("label");
+		elLabel.textContent = _label;
+		elLabel.setAttribute("for",this.id+`input${this.campos.length}`);
+		var elInput = this.criarInput(_tipo, _placeholder, _atributos);
+		this.elCampo.appendChild(elLabel);
+		this.elCampo.appendChild(elInput);
+		this.elForm.appendChild(this.elCampo);
 		return elInput;
 	}
 	adicionarFuncaoSubmit(_funcao) {
@@ -492,7 +594,7 @@ function janela_ControleServidor() {
 	fetch("interno/servidor.php")
 		.then(response => response.json())
 		.then(data => {
-			console.log(data);
+			//console.log(data);
 			dataServidor = data;
 
 			const phpVersion = data.phpVersion || "desconhecida";
@@ -549,7 +651,7 @@ function janela_ControleServidor() {
 		janela.posicionarNoCentro();
 	}
 	
-	console.log({window});
+	//console.log({window});
 	fieldsetServidor.appendChild(pLocal);
 	fieldsetServidor.appendChild(pPHP);
 	
@@ -607,6 +709,21 @@ function janela_ControleServidor() {
 }
 function janela_AdicionarRecurso(_tipo) {
 	let janela = new Janela(`Adicionar novo(a) ${_tipo}`);
+	switch (_tipo) {
+		case "mapa":
+			let formMapa = new Form("Criar mapa");
+			janela.elJanela.appendChild(formMapa.elForm);
+			let inputNome = formMapa.adicionarCampoTexto("Nome:","Nome do mapa",{required:true});
+			let inputDescricao = formMapa.adicionarCampoArea("Descrição:","Descrição informativa sobre o mapa");
+			let inputPingFreq = formMapa.adicionarCampoRange("Frequência do ping em segundos para os dispositivos:",0,600,{multiSteps:[1,10,60],value:10});
+			let inputPingTimeout = formMapa.adicionarCampoRange("Tempo de timeout em milissegundos para os pings:",200,10000,{multiSteps:[200,1000],step:100,value:1000});
+			let inputDownQtd = formMapa.adicionarCampoRange("Quantidade de pings para registrar downtime:",1,10,{multiSteps:[1],value:3});
+			formMapa.adicionarFuncaoSubmit(()=>{
+				new Mapa(-1,inputNome.value);
+				janela.fecharJanela();
+			});
+			break;
+	}
 	janela.exibirJanela();
 }
 //#endregion
@@ -624,7 +741,7 @@ function dispositivo_Id(_id) {
 	let retorno = null;
 	mapas.forEach(_mapa => {
 		let obterId = _mapa.dispositivo_Id(_id);
-		console.log(_mapa);
+		//console.log(_mapa);
 		if (obterId != null) {
 			retorno = obterId;
 		}
@@ -658,8 +775,8 @@ document.addEventListener("mouseup", (_e2) => {
 		dispositivoMovendo.pararMoverDispositivo();
 	}
 	if (menuContextoExibido != null) {
-		console.log(_e2.target.parentElement);
-		console.log(menuContextoExibido.elMenuContexto);
+		//console.log(_e2.target.parentElement);
+		//console.log(menuContextoExibido.elMenuContexto);
 		if (_e2.target.parentElement != menuContextoExibido.elMenuContexto) {
 			menuContextoExibido.esconderMenuContexto();
 		}
@@ -676,11 +793,11 @@ function iniciarWebSocket(_porta,_endereco,_seguro) {
 	let protocolo = (_seguro?"wss":"ws");
 	let novoSocket = new WebSocket(`${protocolo}://${_endereco}:${_porta}`);
 	novoSocket.onopen = () => {
-		console.log("Conectado ao servidor");
+		//console.log("Conectado ao servidor");
 		atualizarBotaoServidor();
 	};
 	novoSocket.onmessage = (evento) => {
-		console.log("<== RECEBIDO\n", evento.data);
+		//console.log("<== RECEBIDO\n", evento.data);
 		jsonServer = JSON.parse(evento.data);
 		switch (jsonServer.tipo) {
 			case "welcome":
@@ -691,9 +808,6 @@ function iniciarWebSocket(_porta,_endereco,_seguro) {
 			case "recursos":
 				jsonServer.mapas.forEach(_mapa => {
 					let novoMapa = new Mapa(_mapa.id,_mapa.nome);
-					listaMapas.adicionarRecurso(novoMapa.nome, () => {
-						novoMapa.exibirMapaNaTela();
-					});
 				});
 				break;
 			case "mapa":
@@ -720,7 +834,7 @@ function iniciarWebSocket(_porta,_endereco,_seguro) {
 							}
 						}
 					} else {
-						console.log(`Não é este o mapa solicitado: ${_dispositivo.mapa}`);
+						//console.log(`Não é este o mapa solicitado: ${_dispositivo.mapa}`);
 					}
 				})
 				break;
@@ -749,10 +863,10 @@ function iniciarWebSocket(_porta,_endereco,_seguro) {
 		atualizarBotaoServidor();
 	};
 	novoSocket.onclose = () => {
-		console.log("Desconectado do servidor");
+		//console.log("Desconectado do servidor");
 		atualizarBotaoServidor();
 		setTimeout(()=>{
-			console.log(`Tentando novamente reconectar a ${_endereco}:${_porta}...`);
+			//console.log(`Tentando novamente reconectar a ${_endereco}:${_porta}...`);
 			conectarServidor(_porta,_endereco,_seguro);
 		},5000);
 	};
@@ -765,7 +879,7 @@ function conectarServidor(_porta,_endereco="localhost",_seguro=true) {
 	} catch(_erro) {
 		console.error("Falha ao conectar no servidor:",_erro);
 		setTimeout(()=>{
-			console.log(`Tentando novamente reconectar a ${_endereco}:${_porta}...`);
+			//console.log(`Tentando novamente reconectar a ${_endereco}:${_porta}...`);
 			conectarServidor(_porta,_endereco,_seguro);
 		},5000);
 	}
@@ -779,7 +893,7 @@ function _monitorSend() {
 	if (mensagens.length > 0) {
 		if (socket.readyState === WebSocket.OPEN) {
 			let mensagem = mensagens.shift();
-			console.log("ENVIANDO ==>\n", mensagem);
+			//console.log("ENVIANDO ==>\n", mensagem);
 			socket.send(mensagem);
 		}
 	}
@@ -790,7 +904,7 @@ function atualizarBotaoServidor() {
 		(socket!==null)
 		&& (socket.readyState == 1)
 	) {
-		console.log(socket);
+		//console.log(socket);
 		btnServidor.classList.add("ok");
 	} else {
 		btnServidor.classList.remove("ok");
