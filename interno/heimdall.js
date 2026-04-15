@@ -259,6 +259,13 @@ class Mapa {
 			let inputDownQtd = formMapa.adicionarCampoRange("Quantidade de pings para registrar downtime:",1,10,{multiSteps:[1],value:this.dispDown});
 			
 			formMapa.adicionarFuncaoSubmit(()=>{
+				let atributos = [];
+				this.nome = prepararAtributo(atributos,"n",inputNome.value,this.nome);
+				this.descricao = prepararAtributo(atributos,"d",inputDescricao.value,this.descricao);
+				this.pingFreq = prepararAtributo(atributos,"pFreq",inputPingFreq.value,this.pingFreq);
+				this.pingTimeout = prepararAtributo(atributos,"pTimeout",inputPingTimeout.value,this.pingTimeout);
+				this.dispDown = prepararAtributo(atributos,"dispDown",inputDownQtd.value,this.dispDown);
+				enviarMensagem(`\\update mapa ${this.id} ${atributos.join(" ")}`);
 				janela.fecharJanela();
 			});
 			janela.exibirJanela();
@@ -509,6 +516,9 @@ class Form {
 			elInput.type = _tipo;
 		} else {
 			elInput = document.createElement("textarea");
+			if (_atributos.value != undefined) {
+				elInput.textContent = _atributos.value;
+			}
 		}
 		elInput.id = this.id+`input${this.campos.length}`;
 		if (_placeholder!="") {
@@ -715,11 +725,14 @@ function janela_AdicionarRecurso(_tipo) {
 			janela.elJanela.appendChild(formMapa.elForm);
 			let inputNome = formMapa.adicionarCampoTexto("Nome:","Nome do mapa",{required:true});
 			let inputDescricao = formMapa.adicionarCampoArea("Descrição:","Descrição informativa sobre o mapa");
-			let inputPingFreq = formMapa.adicionarCampoRange("Frequência do ping em segundos para os dispositivos:",0,600,{multiSteps:[1,10,60],value:10});
+			let inputPingFreq = formMapa.adicionarCampoRange("Frequência do ping em segundos para os dispositivos:",0,600,{multiSteps:[1,10,60],value:5});
 			let inputPingTimeout = formMapa.adicionarCampoRange("Tempo de timeout em milissegundos para os pings:",200,10000,{multiSteps:[200,1000],step:100,value:1000});
 			let inputDownQtd = formMapa.adicionarCampoRange("Quantidade de pings para registrar downtime:",1,10,{multiSteps:[1],value:3});
 			formMapa.adicionarFuncaoSubmit(()=>{
-				new Mapa(-1,inputNome.value);
+				let novoMapa = new Mapa(-1,inputNome.value,inputDescricao.value);
+				novoMapa.pingFreq = inputPingFreq.value;
+				novoMapa.pingTimeout = inputPingTimeout.value;
+				novoMapa.dispDown = inputDownQtd.value;
 				janela.fecharJanela();
 			});
 			break;
@@ -751,6 +764,12 @@ function dispositivo_Id(_id) {
 function dispositivo_registrarNovo(_disp) {
 	dispositivoSemRegistro = _disp;
 	enviarMensagem(`\\create disp ${dispositivoSemRegistro.mapa.id} ${dispositivoSemRegistro.endereco} -n ${dispositivoSemRegistro.nome} -p ${dispositivoSemRegistro.x} ${dispositivoSemRegistro.y}`);
+}
+function prepararAtributo(_array,_nomeAtributo,_valorNovo,_valorAtual) {
+	if (_valorNovo != _valorAtual) {
+		_array.push(`-${_nomeAtributo}`,_valorNovo);
+	}
+	return _valorNovo;
 }
 
 document.addEventListener("mousemove", (_e) => {
@@ -797,7 +816,7 @@ function iniciarWebSocket(_porta,_endereco,_seguro) {
 		atualizarBotaoServidor();
 	};
 	novoSocket.onmessage = (evento) => {
-		//console.log("<== RECEBIDO\n", evento.data);
+		console.log("<== RECEBIDO\n", evento.data);
 		jsonServer = JSON.parse(evento.data);
 		switch (jsonServer.tipo) {
 			case "welcome":
@@ -807,7 +826,10 @@ function iniciarWebSocket(_porta,_endereco,_seguro) {
 				break;
 			case "recursos":
 				jsonServer.mapas.forEach(_mapa => {
-					let novoMapa = new Mapa(_mapa.id,_mapa.nome);
+					let novoMapa = new Mapa(_mapa.id,_mapa.nome,_mapa.descricao);
+					novoMapa.pingFreq = _mapa.pingFreq;
+					novoMapa.pingTimeout = _mapa.pingTimeout;
+					novoMapa.dispDown = _mapa.dispDown;
 				});
 				break;
 			case "mapa":
