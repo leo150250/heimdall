@@ -115,13 +115,55 @@ class Comm {
 
 							$novoDispositivo = new Dispositivo(-1,$mapaObj,$novoNome,$endereco,$novoX,$novoY);
 							
-							$nextId = $recursos->proximoId();
+							$nextId = $recursos->proximoIdDisp();
 							$novoDispositivo->id = $nextId;
 
 							$recursos->salvar();
 							$resposta = new stdClass();
 							$resposta->tipo = "reg";
 							$resposta->dispositivo = $nextId;
+							$from->send(json_encode($resposta));
+							break;
+						case "mapa":
+							$novoNome = $args[1];
+							$novoDesc = "";
+							$novoPingFreq = 5;
+							$novoPingTimeout = 1000;
+							$novoDispDown = 3;
+
+							for ($i = 2; $i < count($args); $i++) {
+								switch ($args[$i]) {
+									case "-d":
+										$novoDesc = $args[$i + 1];
+										$i++;
+										break;
+									case "-pFreq":
+										$novoPingFreq = (int)$args[$i + 1];
+										$i++;
+										break;
+									case "-pTimeout":
+										$novoPingTimeout = (int)$args[$i + 1];
+										$i++;
+										break;
+									case "-dispDown":
+										$novoDispDown = (int)$args[$i + 1];
+										$i++;
+										break;
+								}
+							}
+
+							$novoMapa = new Mapa(-1,$novoNome, $novoDesc);
+							$novoMapa->pingFreq = $novoPingFreq;
+							$novoMapa->pingTimeout = $novoPingTimeout;
+							$novoMapa->dispDown = $novoDispDown;
+
+							$nextId = $recursos->proximoIdMapa();
+							$novoMapa->id = $nextId;
+
+							$recursos->salvar();
+							$resposta = new stdClass();
+							$resposta->tipo = "reg";
+							$resposta->mapa = $nextId;
 							$from->send(json_encode($resposta));
 							break;
 						default:
@@ -143,6 +185,40 @@ class Comm {
 										$updateDispositivo->x=(int)$args[$argumento+1];
 										$updateDispositivo->y=(int)$args[$argumento+2];
 										$argumento+=2;
+										break;
+									default:
+										echo "Argumento update desconhecido: {$args[$argumento]}\n";
+								}
+							}
+							$recursos->salvar();
+							break;
+						case "mapa":
+							$idMapa = $args[1];
+							$updateMapa = array_filter($recursos->mapas, function($item) use ($idMapa) {
+								return $item->id == $idMapa;
+							});
+							$updateMapa = array_shift($updateMapa);
+							for ($argumento = 2; $argumento < count($args) - 1; $argumento++) {
+								switch ($args[$argumento]) {
+									case "-n":
+										$updateMapa->nome=$args[$argumento+1];
+										$argumento++;
+										break;
+									case "-d":
+										$updateMapa->descricao=$args[$argumento+1];
+										$argumento++;
+										break;
+									case "-pFreq":
+										$updateMapa->pingFreq=(int)$args[$argumento+1];
+										$argumento++;
+										break;
+									case "-pTimeout":
+										$updateMapa->pingTimeout=(int)$args[$argumento+1];
+										$argumento++;
+										break;
+									case "-dispDown":
+										$updateMapa->dispDown=(int)$args[$argumento+1];
+										$argumento++;
 										break;
 									default:
 										echo "Argumento update desconhecido: {$args[$argumento]}\n";

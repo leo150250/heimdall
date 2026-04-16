@@ -27,6 +27,9 @@ class Recursos {
 		$jsonRecursos = json_decode(file_get_contents($path."interno/sys/recursos.json"));
 		foreach ($jsonRecursos->mapas as $_mapa) {
 			$novoMapa = new Mapa($_mapa->id,$_mapa->nome,$_mapa->descricao);
+			$novoMapa->pingFreq = $_mapa->pingFreq;
+			$novoMapa->pingTimeout = $_mapa->pingTimeout;
+			$novoMapa->dispDown = $_mapa->dispDown;
 		}
 		foreach ($jsonRecursos->dispositivos as $_dispositivo) {
 			$novoDispositivo = new Dispositivo($_dispositivo->id,$_dispositivo->mapa,$_dispositivo->endereco,$_dispositivo->nome,$_dispositivo->pos[0],$_dispositivo->pos[1]);
@@ -51,11 +54,19 @@ class Recursos {
 		}
 		file_put_contents($path."interno/sys/recursos.json",json_encode($conteudo,JSON_PRETTY_PRINT));
 	}
-	public function proximoId() {
+	public function proximoIdDisp() {
 		if (empty($this->dispositivos)) {
 			return 0;
 		}
 		$ids = array_column($this->dispositivos, 'id');
+		$maxId = max($ids);
+		return $maxId + 1;
+	}
+	public function proximoIdMapa() {
+		if (empty($this->mapas)) {
+			return 0;
+		}
+		$ids = array_column($this->mapas, 'id');
 		$maxId = max($ids);
 		return $maxId + 1;
 	}
@@ -69,6 +80,7 @@ class Mapa {
 	public $links = [];
 	public $dispositivosEmTeste = [];
 	public $pingFreq = 5;
+	public $pingTimeout = 1000;
 	public $dispDown = 3;
 	public $timestampPing = null;
 
@@ -86,6 +98,9 @@ class Mapa {
 		$resposta->id = $this->id;
 		$resposta->nome = $this->nome;
 		$resposta->descricao = $this->descricao;
+		$resposta->pingFreq = $this->pingFreq;
+		$resposta->pingTimeout = $this->pingTimeout;
+		$resposta->dispDown = $this->dispDown;
 		return $resposta;
 	}
 
@@ -94,20 +109,22 @@ class Mapa {
 	}
 
 	public function checarPing() {
-		foreach ($this->dispositivosEmTeste as $_dispositivo) {
-			$_dispositivo->checarPing();
-		}
-		$now = date_create();
-		$now->sub(new DateInterval('PT' . $this->pingFreq . 'S'));
-		if ($now > $this->timestampPing) {
-			echo "Verificando ping do mapa {$this->nome}: ".count($this->dispositivos)." dispositivos\n";
-
-			foreach ($this->dispositivos as $_dispositivo) {
+		if ($this->pingFreq > 0) {
+			foreach ($this->dispositivosEmTeste as $_dispositivo) {
 				$_dispositivo->checarPing();
 			}
+			$now = date_create();
+			$now->sub(new DateInterval('PT' . $this->pingFreq . 'S'));
+			if ($now > $this->timestampPing) {
+				echo "Verificando ping do mapa {$this->nome}: ".count($this->dispositivos)." dispositivos\n";
 
-			$this->timestampPing = date_create();
-			return true;
+				foreach ($this->dispositivos as $_dispositivo) {
+					$_dispositivo->checarPing();
+				}
+
+				$this->timestampPing = date_create();
+				return true;
+			}
 		}
 		return false;
 	}
@@ -165,7 +182,7 @@ class Dispositivo {
 				1 => array("pipe", "w"),
 				2 => array("pipe", "w")
 			);
-			$this->pingProcess = proc_open("ping -n 1 -w 1000 " . escapeshellarg($this->endereco), $descriptors, $pipes);
+			$this->pingProcess = proc_open("ping -n 1 -w {$this->mapa->pingTimeout} " . escapeshellarg($this->endereco), $descriptors, $pipes);
 			if ($this->pingProcess === false) {
 				$this->pingStatus = false;
 				$this->pingFalha();
