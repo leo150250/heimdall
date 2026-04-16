@@ -209,15 +209,15 @@ class Comm {
 										$argumento++;
 										break;
 									case "-pFreq":
-										$updateMapa->pingFreq=$args[$argumento+1];
+										$updateMapa->pingFreq=(int)$args[$argumento+1];
 										$argumento++;
 										break;
 									case "-pTimeout":
-										$updateMapa->pingTimeout=$args[$argumento+1];
+										$updateMapa->pingTimeout=(int)$args[$argumento+1];
 										$argumento++;
 										break;
 									case "-dispDown":
-										$updateMapa->dispDown=$args[$argumento+1];
+										$updateMapa->dispDown=(int)$args[$argumento+1];
 										$argumento++;
 										break;
 									default:

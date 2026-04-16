@@ -109,20 +109,22 @@ class Mapa {
 	}
 
 	public function checarPing() {
-		foreach ($this->dispositivosEmTeste as $_dispositivo) {
-			$_dispositivo->checarPing();
-		}
-		$now = date_create();
-		$now->sub(new DateInterval('PT' . $this->pingFreq . 'S'));
-		if ($now > $this->timestampPing) {
-			echo "Verificando ping do mapa {$this->nome}: ".count($this->dispositivos)." dispositivos\n";
-
-			foreach ($this->dispositivos as $_dispositivo) {
+		if ($this->pingFreq > 0) {
+			foreach ($this->dispositivosEmTeste as $_dispositivo) {
 				$_dispositivo->checarPing();
 			}
+			$now = date_create();
+			$now->sub(new DateInterval('PT' . $this->pingFreq . 'S'));
+			if ($now > $this->timestampPing) {
+				echo "Verificando ping do mapa {$this->nome}: ".count($this->dispositivos)." dispositivos\n";
 
-			$this->timestampPing = date_create();
-			return true;
+				foreach ($this->dispositivos as $_dispositivo) {
+					$_dispositivo->checarPing();
+				}
+
+				$this->timestampPing = date_create();
+				return true;
+			}
 		}
 		return false;
 	}

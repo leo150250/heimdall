@@ -8,6 +8,7 @@ var janelaRedimensionando = null;
 var redimensionamentoDirecao = "";
 var dispositivoMovendo = null;
 var dispositivoSemRegistro = null;
+var mapaSemRegistro = null;
 var usuarioX = -1;
 var usuarioY = -1;
 var mapas = [];
@@ -212,6 +213,10 @@ class MenuContexto {
 		}
 		this.elMenuContexto.appendChild(elItem);
 	}
+	adicionarDivisa() {
+		const elDivisa = document.createElement("hr");
+		this.elMenuContexto.appendChild(elDivisa);
+	}
 	exibirMenuContexto(_x, _y) {
 		//console.log("Exibiu menu de contexto");
 		this.elMenuContexto.style.left = _x + "px";
@@ -230,13 +235,13 @@ class MenuContexto {
 }
 
 class Mapa {
-	constructor(_id,_nome,_descricao="") {
-		this.id = 0;
+	constructor(_id,_nome,_descricao="", _pingFreq = 5, _pingTimeout = 1000, _dispDown = 3) {
+		this.id = _id;
 		this.nome = _nome;
 		this.descricao = _descricao;
-		this.pingFreq = 5;
-		this.pingTimeout = 1000;
-		this.dispDown = 3;
+		this.pingFreq = parseInt(_pingFreq);
+		this.pingTimeout = parseInt(_pingTimeout);
+		this.dispDown = parseInt(_dispDown);
 		this.elTelaMapa = document.createElement("div");
 		this.elTelaMapa.classList.add("tela-mapa");
 		
@@ -248,36 +253,25 @@ class Mapa {
 		this.elBtnPropriedades = document.createElement("button");
 		this.elBtnPropriedades.textContent = "Propriedades";
 		this.elBtnPropriedades.onclick = ()=>{
-			let janela = new Janela(`Propriedades do mapa ID ${this.id}`);
-			let formMapa = new Form(`Confirmar`);
-			janela.elJanela.appendChild(formMapa.elForm);
-
-			let inputNome = formMapa.adicionarCampoTexto("Nome:","Nome do mapa",{required:true,value:this.nome});
-			let inputDescricao = formMapa.adicionarCampoArea("Descrição:","Descrição informativa sobre o mapa",{value:this.descricao});
-			let inputPingFreq = formMapa.adicionarCampoRange("Frequência do ping em segundos para os dispositivos:",0,600,{multiSteps:[1,10,60],value:this.pingFreq});
-			let inputPingTimeout = formMapa.adicionarCampoRange("Tempo de timeout em milissegundos para os pings:",200,10000,{multiSteps:[200,1000],step:100,value:this.pingTimeout});
-			let inputDownQtd = formMapa.adicionarCampoRange("Quantidade de pings para registrar downtime:",1,10,{multiSteps:[1],value:this.dispDown});
-			
-			formMapa.adicionarFuncaoSubmit(()=>{
-				let atributos = [];
-				this.nome = prepararAtributo(atributos,"n",inputNome.value,this.nome);
-				this.descricao = prepararAtributo(atributos,"d",inputDescricao.value,this.descricao);
-				this.pingFreq = prepararAtributo(atributos,"pFreq",inputPingFreq.value,this.pingFreq);
-				this.pingTimeout = prepararAtributo(atributos,"pTimeout",inputPingTimeout.value,this.pingTimeout);
-				this.dispDown = prepararAtributo(atributos,"dispDown",inputDownQtd.value,this.dispDown);
-				enviarMensagem(`\\update mapa ${this.id} ${atributos.join(" ")}`);
-				janela.fecharJanela();
-			});
-			janela.exibirJanela();
+			this.exibirJanelaPropriedades();
+		}
+		this.elBtnFecharMapa = document.createElement("button");
+		this.elBtnFecharMapa.textContent = "X";
+		this.elBtnFecharMapa.onclick = ()=>{
+			this.ocultarMapaDaTela();
 		}
 
 		this.elMenu.appendChild(this.elTitulo);
 		this.elMenu.appendChild(this.elBtnPropriedades);
+		this.elMenu.appendChild(document.createElement("hr"));
+		this.elMenu.appendChild(this.elBtnFecharMapa);
 		this.elMapa = document.createElement("div");
 		this.elMapa.classList.add("mapa");
 
 		this.menuContexto = new MenuContexto();
 		this.menuContexto.adicionarItem("📟 Adicionar dispositivo...", () => janela_AdicionarDispositivo(this));
+		this.menuContexto.adicionarDivisa();
+		this.menuContexto.adicionarItem("Propriedades...", () => this.exibirJanelaPropriedades());
 		this.elMapa.oncontextmenu = (e) => {
 			e.preventDefault();
 			usuarioX = e.clientX;
@@ -296,13 +290,26 @@ class Mapa {
 		this.dispositivos = [];
 		mapas.push(this);
 
-		listaMapas.adicionarRecurso(this.nome, () => {
+		if (this.id == -1) {
+			mapa_registrarNovo(this);
+		}
+
+		this.recursoMapa = listaMapas.adicionarRecurso(this.nome, () => {
 			this.exibirMapaNaTela();
 		});
+		this.menuContextoRecurso = new MenuContexto();
+		this.menuContextoRecurso.adicionarItem("Propriedades...", () => this.exibirJanelaPropriedades());
+		this.recursoMapa.elRecurso.oncontextmenu = (e) => {
+			e.preventDefault();
+			this.menuContextoRecurso.exibirMenuContexto(e.clientX,e.clientY);
+		}
 	}
 	exibirMapaNaTela() {
 		divTela.appendChild(this.elTelaMapa);
 		enviarMensagem(`\\mapa ${this.id}`);
+	}
+	ocultarMapaDaTela() {
+		this.elTelaMapa.remove();
 	}
 	adicionarDispositivo(_dispositivo) {
 		this.dispositivos.push(_dispositivo);
@@ -316,6 +323,29 @@ class Mapa {
 			}
 		});
 		return retorno;
+	}
+	exibirJanelaPropriedades() {
+		let janela = new Janela(`Propriedades do mapa ID ${this.id}`);
+		let formMapa = new Form(`Confirmar`);
+		janela.elJanela.appendChild(formMapa.elForm);
+
+		let inputNome = formMapa.adicionarCampoTexto("Nome:","Nome do mapa",{required:true,value:this.nome});
+		let inputDescricao = formMapa.adicionarCampoArea("Descrição:","Descrição informativa sobre o mapa",{value:this.descricao});
+		let inputPingFreq = formMapa.adicionarCampoRange("Frequência do ping em segundos para os dispositivos:",0,600,{multiSteps:[1,10,60],value:this.pingFreq});
+		let inputPingTimeout = formMapa.adicionarCampoRange("Tempo de timeout em milissegundos para os pings:",200,10000,{multiSteps:[200,1000],step:100,value:this.pingTimeout});
+		let inputDownQtd = formMapa.adicionarCampoRange("Quantidade de pings para registrar downtime:",1,10,{multiSteps:[1],value:this.dispDown});
+		
+		formMapa.adicionarFuncaoSubmit(()=>{
+			let atributos = [];
+			this.nome = prepararAtributo(atributos,"n",inputNome.value,this.nome);
+			this.descricao = prepararAtributo(atributos,"d",inputDescricao.value,this.descricao);
+			this.pingFreq = prepararAtributo(atributos,"pFreq",inputPingFreq.value,this.pingFreq);
+			this.pingTimeout = prepararAtributo(atributos,"pTimeout",inputPingTimeout.value,this.pingTimeout);
+			this.dispDown = prepararAtributo(atributos,"dispDown",inputDownQtd.value,this.dispDown);
+			enviarMensagem(`\\update mapa ${this.id} ${atributos.join(" ")}`);
+			janela.fecharJanela();
+		});
+		janela.exibirJanela();
 	}
 }
 
@@ -421,6 +451,7 @@ class ListaRecurso {
 		const recurso = new Recurso(_nome, _funcao);
 		this.recursos.push(recurso);
 		this.elListaRecurso.appendChild(recurso.elRecurso);
+		return recurso;
 	}
 }
 
@@ -470,7 +501,7 @@ class Form {
 		_atributos.min = _min;
 		_atributos.max = _max;
 		let elInput = this.criarCampo("range", _label, "", _atributos);
-		let elInputNumber = this.criarInput("number");
+		let elInputNumber = this.criarInput("number", null, _atributos);
 		for (const [chave, valor] of Object.entries(_atributos)) {
 			switch (chave) {
 				case "multiSteps":
@@ -494,6 +525,7 @@ class Form {
 				case "value":
 					elInput.value = valor;
 					elInputNumber.value = valor;
+					break;
 			}
 		}
 		elInput.addEventListener('input', ()=>{
@@ -729,11 +761,9 @@ function janela_AdicionarRecurso(_tipo) {
 			let inputPingTimeout = formMapa.adicionarCampoRange("Tempo de timeout em milissegundos para os pings:",200,10000,{multiSteps:[200,1000],step:100,value:1000});
 			let inputDownQtd = formMapa.adicionarCampoRange("Quantidade de pings para registrar downtime:",1,10,{multiSteps:[1],value:3});
 			formMapa.adicionarFuncaoSubmit(()=>{
-				let novoMapa = new Mapa(-1,inputNome.value,inputDescricao.value);
-				novoMapa.pingFreq = inputPingFreq.value;
-				novoMapa.pingTimeout = inputPingTimeout.value;
-				novoMapa.dispDown = inputDownQtd.value;
+				let novoMapa = new Mapa(-1,inputNome.value,inputDescricao.value,inputPingFreq.value,inputPingTimeout.value,inputDownQtd.value);
 				janela.fecharJanela();
+				novoMapa.exibirMapaNaTela();
 			});
 			break;
 	}
@@ -741,6 +771,8 @@ function janela_AdicionarRecurso(_tipo) {
 }
 //#endregion
 
+
+//#region Funções e EventListeners
 function mapa_Id(_id) {
 	let retorno = null;
 	mapas.forEach(_mapa => {
@@ -749,6 +781,15 @@ function mapa_Id(_id) {
 		}
 	});
 	return retorno;
+}
+function mapa_registrarNovo(_mapa) {
+	mapaSemRegistro = _mapa;
+	let atributos = [];
+	prepararAtributo(atributos,"d",_mapa.descricao);
+	prepararAtributo(atributos,"pFreq",_mapa.pingFreq);
+	prepararAtributo(atributos,"pTimeout",_mapa.pingTimeout);
+	prepararAtributo(atributos,"dispDown",_mapa.dispDown);
+	enviarMensagem(`\\create mapa ${_mapa.nome} ${atributos.join(" ")}`);
 }
 function dispositivo_Id(_id) {
 	let retorno = null;
@@ -765,8 +806,12 @@ function dispositivo_registrarNovo(_disp) {
 	dispositivoSemRegistro = _disp;
 	enviarMensagem(`\\create disp ${dispositivoSemRegistro.mapa.id} ${dispositivoSemRegistro.endereco} -n ${dispositivoSemRegistro.nome} -p ${dispositivoSemRegistro.x} ${dispositivoSemRegistro.y}`);
 }
-function prepararAtributo(_array,_nomeAtributo,_valorNovo,_valorAtual) {
-	if (_valorNovo != _valorAtual) {
+function prepararAtributo(_array,_nomeAtributo,_valorNovo,_valorAtual = null) {
+	if (_valorAtual != null) {
+		if (_valorNovo != _valorAtual) {
+			_array.push(`-${_nomeAtributo}`,_valorNovo);
+		}
+	} else {
 		_array.push(`-${_nomeAtributo}`,_valorNovo);
 	}
 	return _valorNovo;
@@ -801,6 +846,7 @@ document.addEventListener("mouseup", (_e2) => {
 		}
 	}
 });
+//#endregion
 
 
 //#region Comunicação com servidor
@@ -826,34 +872,30 @@ function iniciarWebSocket(_porta,_endereco,_seguro) {
 				break;
 			case "recursos":
 				jsonServer.mapas.forEach(_mapa => {
-					let novoMapa = new Mapa(_mapa.id,_mapa.nome,_mapa.descricao);
-					novoMapa.pingFreq = _mapa.pingFreq;
-					novoMapa.pingTimeout = _mapa.pingTimeout;
-					novoMapa.dispDown = _mapa.dispDown;
+					let mapa = mapa_Id(_mapa.id);
+					if (mapa == null) {
+						mapa = new Mapa(_mapa.id,_mapa.nome,_mapa.descricao);
+					}
+					mapa.pingFreq = _mapa.pingFreq;
+					mapa.pingTimeout = _mapa.pingTimeout;
+					mapa.dispDown = _mapa.dispDown;
 				});
 				break;
 			case "mapa":
 				jsonServer.dispositivos.forEach(_dispositivo => {
 					let mapaId = mapa_Id(_dispositivo.mapa);
 					if (mapaId !== null) {
-						let dispositivoId = mapaId.dispositivo_Id(_dispositivo.id);
-						if (dispositivoId == null) {
-							let novoDispositivo = new Dispositivo(_dispositivo.id,_dispositivo.mapa,_dispositivo.endereco,_dispositivo.nome,_dispositivo.pos[0],_dispositivo.pos[1]);
-							//mapaId.adicionarDispositivo(novoDispositivo);
-							if (_dispositivo.status == 0) {
-								novoDispositivo.informarUp();
-							} else if (_dispositivo.status > 0) {
-								novoDispositivo.informarDown();
-							}
-						} else {
-							dispositivoId.endereco = _dispositivo.endereco;
-							dispositivoId.posicionarDispositivo(_dispositivo.pos[0],_dispositivo.pos[1]);
-							dispositivoId.nomearElemento(_dispositivo.nome);
-							if (_dispositivo.status == 0) {
-								dispositivoId.informarUp();
-							} else if (_dispositivo.status > 0) {
-								dispositivoId.informarDown();
-							}
+						let dispositivo = mapaId.dispositivo_Id(_dispositivo.id);
+						if (dispositivo == null) {
+							dispositivo = new Dispositivo(_dispositivo.id,_dispositivo.mapa,_dispositivo.endereco,_dispositivo.nome,_dispositivo.pos[0],_dispositivo.pos[1]);
+						}
+						dispositivo.endereco = _dispositivo.endereco;
+						dispositivo.posicionarDispositivo(_dispositivo.pos[0],_dispositivo.pos[1]);
+						dispositivo.nomearElemento(_dispositivo.nome);
+						if (_dispositivo.status == 0) {
+							dispositivo.informarUp();
+						} else if (_dispositivo.status > 0) {
+							dispositivo.informarDown();
 						}
 					} else {
 						//console.log(`Não é este o mapa solicitado: ${_dispositivo.mapa}`);
@@ -864,6 +906,10 @@ function iniciarWebSocket(_porta,_endereco,_seguro) {
 				if (dispositivoSemRegistro != null) {
 					dispositivoSemRegistro.id = jsonServer.dispositivo;
 					dispositivoSemRegistro = null;
+				}
+				if (mapaSemRegistro != null) {
+					mapaSemRegistro.id = jsonServer.mapa;
+					mapaSemRegistro = null;
 				}
 				break;
 			case "up":
