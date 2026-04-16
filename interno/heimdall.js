@@ -273,14 +273,11 @@ class Mapa {
 		this.menuContexto.adicionarDivisa();
 		this.menuContexto.adicionarItem("Propriedades...", () => this.exibirJanelaPropriedades());
 		this.elMapa.oncontextmenu = (e) => {
-			e.preventDefault();
-			usuarioX = e.clientX;
-			usuarioY = e.clientY;
-			this.menuContexto.exibirMenuContexto(usuarioX, usuarioY);
-		}
-		this.elMapa.onmousedown = (e) => {
-			if (menuContextoExibido != null) {
-				menuContextoExibido.esconderMenuContexto();
+			if (e.target == this.elMapa) {
+				e.preventDefault();
+				usuarioX = e.clientX;
+				usuarioY = e.clientY;
+				this.menuContexto.exibirMenuContexto(usuarioX, usuarioY);
 			}
 		}
 		
